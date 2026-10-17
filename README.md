@@ -10,7 +10,7 @@ with an AI copilot for prior auth review. Built with Python/FastAPI, X12 EDI, FH
 | Phase | Scope | Status |
 |---|---|---|
 | 1 | Eligibility service: X12 270/271 + FHIR R4 `CoverageEligibilityRequest/Response`, JWT scopes, audit logging, tests | ✅ Done |
-| 2 | Prior auth service: X12 278 + Da Vinci PAS (FHIR `Claim`), rules engine, pend/approve workflow | Next |
+| 2 | Prior auth service: X12 278 + Da Vinci PAS (FHIR `Claim`), rules engine, pend/approve workflow | 🚧 In progress: 278 intake done |
 | 3 | Prior Auth Copilot: Azure OpenAI, Azure AI Search (RAG over payer policies), missing-info agent, citations | |
 | 4 | Entra ID OAuth/OIDC, Azure Service Bus, Terraform, GitHub Actions CI/CD, Application Insights | |
 | 5 | React provider/reviewer portal, claims (837/835), evaluation metrics | |
@@ -57,7 +57,13 @@ TOKEN=$(curl -s -X POST localhost:8001/auth/token -H "Content-Type: application/
 curl -X POST localhost:8001/x12/270 -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: text/plain" --data-binary @samples/270_active_member.edi
 
-# 3. FHIR: patient and coverage
+# 3. X12: submit a 278 prior auth request (prior-auth service, port 8002)
+TOKEN2=$(curl -s -X POST localhost:8002/auth/token -H "Content-Type: application/json" \
+  -d '{"client_id":"demo"}' | python -c "import sys,json;print(json.load(sys.stdin)['access_token'])")
+curl -X POST localhost:8002/x12/278 -H "Authorization: Bearer $TOKEN2" \
+  -H "Content-Type: text/plain" --data-binary @samples/278_request_mri.edi
+
+# 4. FHIR: patient and coverage
 curl localhost:8001/fhir/Patient/M100000001 -H "Authorization: Bearer $TOKEN"
 curl "localhost:8001/fhir/Coverage?beneficiary=Patient/M100000002" -H "Authorization: Bearer $TOKEN"
 ```
@@ -81,4 +87,6 @@ Providers: `1234567893` and `1245319599` in-network, `1003000126` out-of-network
 - Member lookups verify last name and DOB to prevent returning the wrong person's data.
 - Container runs as a non-root user.
 
-See [`docs/phase1-eligibility-guide.md`](docs/phase1-eligibility-guide.md) for a walkthrough of every segment and resource.
+Study guides:
+- [`docs/phase1-eligibility-guide.md`](docs/phase1-eligibility-guide.md): 270/271 and FHIR eligibility
+- [`docs/phase2a-278-guide.md`](docs/phase2a-278-guide.md): 278 prior authorization
